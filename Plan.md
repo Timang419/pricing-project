@@ -30,23 +30,23 @@ Add the project to your CV once Step 6 is done; Steps 7–8 can follow.
 
 Goal: a GitHub repo, a working Python environment, MySQL running, and the two raw CSVs saved locally.
 
-- [ ] Install MySQL 8.0+ (window functions and CTEs need 8.0) and MySQL Workbench
-- [ ] Create a database: `CREATE DATABASE motor_pricing;`
-- [ ] Create a GitHub repo `motor-pricing` and a virtual environment
-- [ ] `pip install pandas sqlalchemy pymysql scikit-learn statsmodels lightgbm xgboost optuna shap matplotlib seaborn streamlit python-dotenv`
-- [ ] Put DB credentials in a `.env` file and add `.env` and `data/` to `.gitignore`
-- [ ] Download the data and save as CSV
+- [x] Install MySQL 8.0+ (window functions and CTEs need 8.0) and MySQL Workbench
+- [x] Create a database: `CREATE DATABASE motor_pricing;`
+- [x] Create a GitHub repo `pricing-project` and a virtual environment
+- [x] `pip install pandas sqlalchemy pymysql scikit-learn statsmodels lightgbm xgboost optuna shap matplotlib seaborn streamlit python-dotenv`
+- [x] Put DB credentials (`DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_NAME`) in a `.env` file and add `.env` and `data/` to `.gitignore`
+- [x] Download the data and save as CSV
 
 **Data source:** OpenML — freMTPL2freq (ID 41214, \~678k policies) and freMTPL2sev (ID 41215, one row per claim).
 
 ```python
-# notebooks/00_download_data.ipynb
+# download.ipynb — Step 0 cell
 from sklearn.datasets import fetch_openml
 
 freq = fetch_openml(data_id=41214, as_frame=True).frame
 sev = fetch_openml(data_id=41215, as_frame=True).frame
-freq.to_csv("../data/raw/freMTPL2freq.csv", index=False)
-sev.to_csv("../data/raw/freMTPL2sev.csv", index=False)
+freq.to_csv("data/raw/freMTPL2freq.csv", index=False)
+sev.to_csv("data/raw/freMTPL2sev.csv", index=False)
 ```
 
 **Repo layout:**
@@ -58,13 +58,11 @@ pricing-project/
 ├── requirements.txt
 ├── .env                   (git-ignored: DB password)
 ├── data/raw/              (git-ignored: CSVs)
-├── notebooks/
-│   ├── 00_download_data.ipynb
-│   ├── 01_load_raw.ipynb
-│   ├── 02_eda.ipynb
-│   ├── 03_glm.ipynb
-│   ├── 04_gbm.ipynb
-│   └── 05_explain_and_price.ipynb
+├── download.ipynb         (Step 0 download + Step 1 raw load)
+├── 02_eda.ipynb
+├── 03_glm.ipynb
+├── 04_gbm.ipynb
+├── 05_explain_and_price.ipynb
 ├── sql/
 │   ├── 01_schema_raw.sql
 │   ├── 02_data_quality.sql
@@ -108,17 +106,25 @@ CREATE TABLE claims_raw (
 ```
 
 ```python
-# notebooks/01_load_raw.ipynb
+# download.ipynb — Step 1 cells
 import os
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, URL
 from dotenv import load_dotenv
 
-load_dotenv("../.env")
-engine = create_engine(os.environ["DB_URL"])  # mysql+pymysql://user:pw@localhost/motor_pricing — never print this
+load_dotenv(".env", override=True)
+url = URL.create(
+    "mysql+pymysql",
+    username=os.environ["DB_USER"],
+    password=os.environ["DB_PASSWORD"],  # never print this
+    host=os.environ["DB_HOST"],
+    port=int(os.environ["DB_PORT"]),
+    database=os.environ["DB_NAME"],
+)
+engine = create_engine(url)
 
-freq = pd.read_csv("../data/raw/freMTPL2freq.csv")
-sev = pd.read_csv("../data/raw/freMTPL2sev.csv")
+freq = pd.read_csv("data/raw/freMTPL2freq.csv")
+sev = pd.read_csv("data/raw/freMTPL2sev.csv")
 
 for df in (freq, sev):
     for col in df.select_dtypes("object"):
@@ -458,7 +464,7 @@ Goal: a recruiter can see the result in 30 seconds without running anything.
 3. Results table (GLM vs GBM)
 4. Data pipeline: ER diagram, data-quality decisions table, row-count reconciliation
 5. Method: frequency–severity, exposure offset, large-claim capping
-6. How to run: MySQL setup, `run sql/01–05 and notebooks/00–05 in number order`
+6. How to run: MySQL setup, `run sql/01, then download.ipynb, then sql/02–05, then notebooks 02–05 in number order`
 7. Limitations: French data from one insurer, no time dimension, assumed expense loading
 
 - [ ] `requirements.txt` with pinned versions

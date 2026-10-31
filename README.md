@@ -52,17 +52,92 @@ Frequency = claims / exposure; severity = claim cost / claims; pure premium = cl
 
 ### By region
 
-The 3 regions with the most claim cost (R24, R82, R93) account for 60% of it. The 2 highest pure premiums, R21 (399.59) and R94 (263.08), come from regions with only about 1% of total cost each.
+The 3 regions with the most claim cost (R24, R82, R93) account for 60% of it. The 2 highest pure premiums, R21 (399.59) and R94 (263.08), come from regions with only 0.8% of total cost each.
 
 ### Large claims
 
 The top 1% of claims make up 38% of total claim cost.
 
+### By BonusMalus
+
+| BonusMalus | Exposure (years) | Frequency | Avg severity | Pure premium |
+| --- | ---: | ---: | ---: | ---: |
+| 50 | 225,153 | 0.0513 | 1,928.71 | 98.97 |
+| 51-75 | 84,830 | 0.0923 | 1,997.27 | 184.40 |
+| 76-100 | 44,806 | 0.1287 | 3,369.35 | 433.52 |
+| 101-125 | 3,198 | 0.3418 | 1,844.08 | 630.33 |
+| 126+ | 373 | 0.4369 | 3,339.58 | 1,459.18 |
+
+### By vehicle age
+
+| Vehicle age | Exposure (years) | Frequency | Avg severity | Pure premium |
+| --- | ---: | ---: | ---: | ---: |
+| 0 | 16,696 | 0.0707 | 1,985.54 | 140.45 |
+| 1-4 | 112,269 | 0.0733 | 2,104.78 | 154.35 |
+| 5-10 | 121,168 | 0.0799 | 1,959.95 | 156.67 |
+| 11-20 | 103,082 | 0.0689 | 2,932.63 | 201.96 |
+| 21+ | 5,145 | 0.0402 | 2,091.04 | 84.14 |
+
+### By vehicle power
+
+| Vehicle power | Exposure (years) | Frequency | Avg severity | Pure premium |
+| --- | ---: | ---: | ---: | ---: |
+| 4 | 60,055 | 0.0660 | 2,373.29 | 156.69 |
+| 5 | 68,148 | 0.0751 | 1,727.81 | 129.68 |
+| 6 | 82,498 | 0.0764 | 2,281.67 | 174.38 |
+| 7 | 77,920 | 0.0718 | 2,222.17 | 159.48 |
+| 8 | 22,674 | 0.0726 | 1,795.06 | 130.31 |
+| 9 | 15,339 | 0.0795 | 5,135.29 | 408.45 |
+| 10 | 15,367 | 0.0792 | 2,344.55 | 185.68 |
+| 11 | 8,491 | 0.0841 | 1,837.72 | 154.53 |
+| 12 | 3,791 | 0.0781 | 2,390.82 | 186.68 |
+| 13 | 1,637 | 0.0849 | 2,233.84 | 189.67 |
+| 14 | 1,180 | 0.0856 | 3,182.38 | 272.39 |
+| 15 | 1,260 | 0.0762 | 1,294.52 | 98.59 |
+
+### By area
+
+| Area | Exposure (years) | Avg density | Frequency | Avg severity | Pure premium |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| A | 61,957 | 28 | 0.0543 | 2,300.72 | 124.92 |
+| B | 43,002 | 73 | 0.0612 | 3,370.29 | 206.36 |
+| C | 104,403 | 249 | 0.0679 | 2,060.07 | 139.96 |
+| D | 77,088 | 1,076 | 0.0833 | 2,256.11 | 187.92 |
+| E | 63,786 | 4,380 | 0.0960 | 2,126.68 | 204.08 |
+| F | 8,125 | 22,015 | 0.0953 | 1,524.04 | 145.17 |
+
+### By fuel type
+
+| Fuel | Exposure (years) | Frequency | Avg severity | Pure premium |
+| --- | ---: | ---: | ---: | ---: |
+| Diesel | 170,588 | 0.0788 | 2,051.80 | 161.76 |
+| Regular | 187,773 | 0.0690 | 2,493.98 | 172.09 |
+
+Diesel claim frequency ÷ regular claim frequency = 1.14.
+
+### By population density
+
+| Density (per km²) | Exposure (years) | Frequency | Avg severity | Pure premium |
+| --- | ---: | ---: | ---: | ---: |
+| <50 | 61,460 | 0.0543 | 2,290.88 | 124.46 |
+| 50-199 | 87,864 | 0.0630 | 2,564.86 | 161.69 |
+| 200-499 | 60,032 | 0.0702 | 2,224.52 | 156.08 |
+| 500-1999 | 77,093 | 0.0833 | 2,256.11 | 187.91 |
+| 2000-9999 | 63,786 | 0.0960 | 2,126.68 | 204.08 |
+| 10000+ | 8,125 | 0.0953 | 1,524.04 | 145.17 |
+
 **Findings:**
 
 - Claim frequency falls steadily with age, from 0.239 at 18-20 to 0.059 at 66+, roughly a 4× difference. Driver age is a strong frequency rating factor.
-- The 18-20 band's average severity (13,431) is about 6× that of the other bands, but it rests on very little exposure (2,585 years, under 1% of the portfolio). It is probably driven by one or a few very large claims rather than a real severity effect. Bands this thin should be merged, or large claims capped, before modelling severity by age.
+- The 18-20 band's average severity (13,431) is 6–7× that of the other bands, but it comes from a few very large claims, not from generally more expensive claims. Its 3 largest claims make up 82% of its claim cost; without them, its average claim is 2,455, compared with 2,009 for all claims after removing their 3 largest. The band is also thin (2,585 exposure years, under 1% of the portfolio), so it should be merged, or large claims capped, before modelling severity by age.
 - Severity is roughly flat across the bands from 21 to 65 (about 1,890-2,250), so the age effect is mainly in frequency. Severity rises again at 66+ (2,398).
 - Claim cost is concentrated by region: 3 of 22 regions carry 60% of it. Small regions such as R21 and R94 have the highest pure premiums, but their low volume makes those estimates unreliable. They should be credibility-weighted or grouped rather than rated on their own experience.
 - Large claims dominate: the top 1% of claims make up 38% of cost. This confirms that large claims need capping, with the excess spread across the portfolio, in the severity model.
-- The 26,406 claims in `policies_clean` are fewer than the 26,444 claim rows in `claims_clean` because of the cap at 4 claims per policy.
+- The 26,406 claims in `policies_clean` are 38 fewer than the 26,444 claim rows in `claims_clean`. The cap at 4 claims per policy removes 39 claims from 8 policies, and 1 policy has 2 claims but only 1 claim row.
+- BonusMalus is the strongest frequency factor found so far: frequency rises from 0.051 at the best score (50) to 0.437 at 126+, about 8.5×. Above 100 the bands are thin (about 1% of exposure), so the top bands will need merging or a smooth curve in the GLM.
+- Vehicle age and vehicle power have weak effects on frequency. Frequency stays between 0.069 and 0.080 for vehicles up to 20 years old, and rises only slightly with power, from 0.066 at 4 to about 0.085 at 13–14. The severity spike at power 9 (5,135) comes from a single claim: without it, the average claim at power 9 is 1,796, below the portfolio average.
+- Vehicles older than 20 years claim less often (0.040), but this band is small and includes implausible ages of up to 100 years. This supports capping `veh_age` at 20.
+- Diesel cars claim 1.14× as often as petrol cars but have lower severity (2,052 vs 2,494), so their pure premiums are close (162 vs 172).
+- Frequency rises with population density, from 0.054 under 50 per km² to 0.096 at 2,000–9,999, then levels off. Severity does not rise with density.
+- One claim of 4,075,400.56 (claim 9757 on policy 1120377), the largest in the data, inflates the average severity of every group it falls in. The policy has a 19-year-old driver, vehicle power 9, area B, BonusMalus 100 and a 13-year-old vehicle, so the claim raises the average for driver age 18-20, power 9, area B, BonusMalus 76-100 and vehicle age 11-20. Without it, area B's average claim falls from 3,370 to 1,823 and BonusMalus 76-100's from about 3,370 to 2,663. On its own it is 6.8% of all claim cost, which is why large claims must be capped before fitting the severity model.
+- Area is a banded version of density. Each area covers its own density range: A 1–50, B 50–100, C 100–500, D 500–1,993, E 2,001–9,850 and F 10,008–27,000 (the ranges meet only at the edge values 50, 100 and 500). Areas E and F have exactly the same exposure, frequency and severity as the 2,000–9,999 and 10,000+ density bands. Area and density carry the same information, so the model should use only one of them.

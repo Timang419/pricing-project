@@ -221,3 +221,9 @@ __marimo__/
 
 # Project data
 data/
+
+# Saved statsmodels models: the frequency GLM is ~270 MB, over GitHub's 100 MB limit
+models/*.pickle
+
+# VS Code SQL extension scratch files
+*.session.sql

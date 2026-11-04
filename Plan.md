@@ -298,7 +298,7 @@ SELECT id_pol, exposure, claim_nb, claim_amount_total,
 FROM policies_clean;
 ```
 
-**Severity table with large-claim capping.** A few huge claims would dominate the Gamma model. Cap individual claims at roughly the 99.5th percentile and treat the excess as a flat loading spread across all policies.
+**Severity table with large-claim capping.** A few huge claims would dominate the Gamma model. Cap individual claims at roughly the 99.5th percentile and charge the excess back as a loading per expected claim, so riskier policies pay more of it (large-claim counts rise with claim frequency).
 
 ```sql
 -- find the cap: the claim at the 99.5th percentile
@@ -320,7 +320,7 @@ JOIN (SELECT id_pol, COUNT(*) AS n_claims,
   ON f.id_pol = s.id_pol;
 ```
 
-- [ ] Large-claim loading = (total cost − capped cost) / total exposure. Record it; it's added to every premium in Step 7.
+- [ ] Large-claim loading = excess cost above the cap / train claims (`SUM(claim_nb)`), from the `large_claim_loading` view. Record it; it's added to predicted severity in Step 7.
 - [ ] Check the split: frequency in train and test should be close
 - [ ] Python: `df = pd.read_sql("SELECT * FROM model_features", engine)`
 
@@ -357,16 +357,27 @@ sev_glm = smf.glm(
     var_weights=sev_train.n_claims).fit()
 ```
 
-**Pure premium** per policy-year = predicted frequency × predicted severity.
+**Pure premium** per policy-year = predicted frequency × (k × predicted severity + large-claim loading).
+
+**Balance factor k.** A Gamma model doesn't have to make its predictions add up to actual claim cost, so check it and rescale with one factor:
+
+```python
+# on out-of-fold train predictions from the final model, never test
+k = capped_cost.sum() / (freq_oof * sev_oof * exposure).sum()
+```
+
+`k` changes the overall price level but not how policies rank, so Gini is unchanged. Expect it close to 1 for the GLM.
 
 **Metrics** (write these as functions in a setup cell and reuse them in the GBM notebook):
 
 - Frequency: mean Poisson deviance on `claim_nb / exposure`, weighted by exposure (`sklearn.metrics.mean_poisson_deviance`)
 - Severity: mean Gamma deviance, weighted by claim count
 - Pure premium: Gini coefficient from an exposure-weighted Lorenz curve (how well the model ranks risk)
-- Calibration: total predicted claim cost ÷ total actual claim cost on the test set (should be close to 1)
+- Calibration: total actual capped cost ÷ total predicted capped cost on the test set, before and after `k` (should be close to 1; same direction as `k` and the decile chart, above 1 = underpriced)
+- Decile calibration: actual ÷ predicted by decile of predicted pure premium. `k` only fixes the total, so errors here go in the limitations
 
 * [ ] Fit both GLMs, save coefficient tables (`exp(coef)` = relativities)
+* [ ] Calculate `k` for the GLM and apply it before comparing deviance
 * [ ] Record test-set metrics in a results table
 * [ ] Sanity check: young drivers and high BonusMalus should have relativities above 1
 
@@ -401,7 +412,7 @@ freq_rate = freq_gbm.predict(test[features])
 
 XGBoost equivalent: `objective="count:poisson"` with `base_margin=np.log(exposure)` in the `DMatrix`.
 
-**Severity:** `objective="gamma"`, label = `avg_claim_capped`, weight = `n_claims`, trained on policies with claims only.
+**Severity:** `objective="gamma"`, label = `avg_claim_capped`, weight = `n_claims`, trained on policies with claims only. The Gamma GBM tends to under-predict total severity, and the gap grows with more boosting rounds, so calculate its `k` last, on the final tuned model.
 
 **Tuning with Optuna** (reuse your dissertation setup): tune `num_leaves`, `min_data_in_leaf`, `learning_rate`, `feature_fraction`, `lambda_l2`. About 50 trials is enough; optimise validation Poisson deviance. Don't chase the last 0.5%.
 
@@ -409,12 +420,13 @@ XGBoost equivalent: `objective="count:poisson"` with `base_margin=np.log(exposur
 
 **Results table** (test set, fill in):
 
-| Model | Freq. Poisson deviance | Sev. Gamma deviance | Pure premium Gini | Calibration (pred/actual) |
-| --- | --- | --- | --- | --- |
-| GLM |  |  |  |  |
-| LightGBM |  |  |  |  |
-| Tweedie GBM (optional) |  |  |  |  |
+| Model | Freq. Poisson deviance | Sev. Gamma deviance | Pure premium Gini | k | Calibration before / after k |
+| --- | --- | --- | --- | --- | --- |
+| GLM |  |  |  |  |  |
+| LightGBM |  |  |  |  |  |
+| Tweedie GBM (optional) |  |  |  |  |  |
 
+- [ ] Calculate `k` for the GBM after tuning is finished, and apply it before comparing deviance
 - [ ] Save models to `models/`
 - [ ] Compute % improvement in deviance and Gini vs GLM — this is your CV number
 - [ ] Add the project to your CV now
@@ -438,10 +450,10 @@ Goal: turn model accuracy into a business finding. This is the section that make
 **3. From pure premium to a quoted price**
 
 ```latex
-\text{Premium} = \frac{\hat{\lambda} \cdot \hat{\mu} + L_{\text{large}}}{1 - e - p}
+\text{Premium} = \frac{\hat{\lambda} \cdot (k \cdot \hat{\mu} + L_{\text{large}})}{1 - e - p}
 ```
 
-where λ̂ = predicted frequency, μ̂ = predicted capped severity, L = large-claim loading from Step 4, e = expense ratio, p = profit margin. Pick and state simple assumptions (e.g. e = 25%, p = 5%).
+where λ̂ = predicted frequency, μ̂ = predicted capped severity, k = balance factor from Step 5 or 6, L = large-claim loading per claim from Step 4, e = expense ratio, p = profit margin. Pick and state simple assumptions (e.g. e = 25%, p = 5%).
 
 - [ ] Write 3 headline findings with numbers for the README
 
@@ -465,7 +477,7 @@ Goal: a recruiter can see the result in 30 seconds without running anything.
 4. Data pipeline: ER diagram, data-quality decisions table, row-count reconciliation
 5. Method: frequency–severity, exposure offset, large-claim capping
 6. How to run: MySQL setup, `run sql/01, then download.ipynb, then sql/02–05, then notebooks 02–05 in number order`
-7. Limitations: French data from one insurer, no time dimension, assumed expense loading
+7. Limitations: French data from one insurer, no time dimension, assumed expense loading, excess cost per large claim assumed the same for every risk (too few large claims to model it), local miscalibration that `k` can't fix
 
 - [ ] `requirements.txt` with pinned versions
 - [ ] Restart and run every notebook top to bottom before pushing, so the outputs match the code
@@ -486,7 +498,7 @@ Goal: a recruiter can see the result in 30 seconds without running anything.
 1. Why model frequency and severity separately instead of premium directly? (Different drivers, different distributions; Tweedie is the one-model alternative.)
 2. Why is exposure an offset and not a feature? (A policy covered for half a year should expect half the claims; the offset fixes that coefficient at 1.)
 3. Why Poisson and Gamma? (Counts and positive skewed amounts; log link gives multiplicative relativities.)
-4. How did you handle large claims? (Capped at the 99.5th percentile, excess spread as a loading.)
+4. How did you handle large claims? (Capped at the 99.5th percentile, from train claims only. Large-claim counts rose with claim frequency, so the excess is charged back per expected claim, not as a flat amount per year.)
 5. Why does the GBM beat the GLM, and why might an insurer still use the GLM? (Interactions and non-linearity vs transparency, regulation, ease of filing rates.)
 6. What would you do with more time? (Telematics or time features, monotonic constraints, GLM with GBM-discovered interactions.)
 7. Walk me through one cleaning decision. (The claims-without-severity case is the best story.)

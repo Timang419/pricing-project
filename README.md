@@ -159,3 +159,24 @@ Drawn in [`02_eda.ipynb`](02_eda.ipynb) from the clean layer; the notebook check
 - The 99.5th-percentile claim is 34,377. This is the large-claim cap for the severity model in Step 4.
 - Claim cost is concentrated: the largest 1% of claims make up 38% of total cost, and the largest 10% make up 60%.
 - Driver age and BonusMalus are strongly related (Spearman correlation −0.57). The exposure-weighted average BonusMalus is about 90–94 for drivers aged 18–20 and about 53 from age 50 onwards. Because young drivers also tend to have high BonusMalus, the one-way tables above mix the two effects: the driver-age table partly reflects BonusMalus and vice versa. The GLM in Step 5 estimates each factor while holding the other fixed, which will show how much of each effect remains. All other pairs of numeric factors are weakly related (between −0.10 and 0.14).
+
+### Distribution checks
+
+Section 5 of [`02_eda.ipynb`](02_eda.ipynb) checks whether Poisson suits claim frequency and Gamma suits claim severity. A GLM assumes these distributions *given the rating factors*, so each test uses expected values from a quick diagnostic GLM, with every rating factor except area (a duplicate of density) as a main effect. These diagnostic GLMs are not the pricing models.
+
+| Model | Test | Result | Conclusion |
+|---|---|---|---|
+| Frequency | Cameron–Trivedi overdispersion | α = 0.125, z = 7.6, p = 1.5e-14 | Overdispersed |
+| Frequency | Poisson vs negative binomial | AIC 444 lower for NB (LR = 446, p = 2e-99); relativities change by 0.2% (median), 3.0% (largest) | Keep Poisson for the mean |
+| Severity | Modified Park test | λ = 2.52 (95% CI 1.82 to 3.23) | Consistent with Gamma |
+| Severity | Gamma vs lognormal | AIC 445,639 vs 442,253 | Lognormal fits the shape better; neither fits well |
+
+![Severity QQ plots](figures/severity_qq.png)
+
+**Findings from the distribution checks:**
+
+- Claim counts are overdispersed: the variance is larger than Poisson allows. Cameron–Trivedi puts the size at α = 0.125, so the variance is about 1.13× the mean. The Pearson dispersion ratio is higher (1.70) because it is sensitive to policies with very small expected counts: one claim on a policy expected to have 0.01 claims adds about 98 to Pearson χ², but only about −2 to the Cameron–Trivedi statistic.
+- The overdispersion barely affects the mean. The negative binomial fits better (AIC 444 lower), but no relativity changes by more than 3.0% (the largest changes are in the driver age bands), and the median change is 0.2%. Step 5 therefore keeps the Poisson GLM for frequency, with standard errors scaled for overdispersion (quasi-Poisson) so that significance is not overstated. Scaling by the Pearson ratio (1.70) is the conservative choice: it widens standard errors by about 30%.
+- The variance of claim amounts grows roughly with the mean squared, as Gamma assumes: λ = 2.52, and the 95% CI contains 2. The CI is wide because the fitted mean claim only ranges from 918 to 3,852 across segments, and it also contains 3, so inverse Gaussian cannot be ruled out. The result is "Gamma is not contradicted" rather than "Gamma is confirmed".
+- Neither Gamma nor lognormal describes the shape of claim amounts well. Both QQ plots bend at the cluster of claims between 1,000 and 1,300 (46% of all claims), which no smooth distribution can reproduce. Gamma predicts too many very small claims and too few large ones (above about 3× the mean). Lognormal follows the large claims more closely up to the cap, which is why its AIC is lower, but it underestimates how small the smallest claims are.
+- Step 5 still uses a Gamma GLM for severity. Its relativities depend only on the mean and the variance assumption, which the Park test does not contradict, not on the exact shape. A lognormal model would also need a back-transformation to get from log claims to the mean claim. The cluster and the poor tail fit are reasons to keep the large-claim cap and to check the severity model's residuals and actual vs expected by segment in Step 5.

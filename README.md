@@ -180,3 +180,71 @@ Section 5 of [`02_eda.ipynb`](02_eda.ipynb) checks whether Poisson suits claim f
 - The variance of claim amounts grows roughly with the mean squared, as Gamma assumes: λ = 2.52, and the 95% CI contains 2. The CI is wide because the fitted mean claim only ranges from 918 to 3,852 across segments, and it also contains 3, so inverse Gaussian cannot be ruled out. The result is "Gamma is not contradicted" rather than "Gamma is confirmed".
 - Neither Gamma nor lognormal describes the shape of claim amounts well. Both QQ plots bend at the cluster of claims between 1,000 and 1,300 (46% of all claims), which no smooth distribution can reproduce. Gamma predicts too many very small claims and too few large ones (above about 3× the mean). Lognormal follows the large claims more closely up to the cap, which is why its AIC is lower, but it underestimates how small the smallest claims are.
 - Step 5 still uses a Gamma GLM for severity. Its relativities depend only on the mean and the variance assumption, which the Park test does not contradict, not on the exact shape. A lognormal model would also need a back-transformation to get from log claims to the mean claim. The cluster and the poor tail fit are reasons to keep the large-claim cap and to check the severity model's residuals and actual vs expected by segment in Step 5.
+
+## GLM baseline
+
+Fitted in [`03_glm.ipynb`](03_glm.ipynb) on the modelling views from [`sql/05_features.sql`](sql/05_features.sql). The GLM is the industry-standard benchmark: every GBM result is reported against it.
+
+### Setup
+
+The split is fixed in SQL: 80% train, 20% test, assigned by `CRC32(id_pol)` so the same policy always lands on the same side. All fitting, banding and grouping decisions use train only; the test set is used once, for the metrics below.
+
+| | Frequency | Severity |
+| --- | --- | --- |
+| Model | Poisson, log link, standard errors scaled for overdispersion (quasi-Poisson) | Gamma, log link |
+| Target | `claim_nb`, with `log(exposure)` as an offset | Average capped claim per policy, weighted by number of claims |
+| Rows (train / test) | 542,144 / 135,869 policies | 20,068 / 4,876 policies with claims |
+| Rating factors | Driver age, BonusMalus, vehicle age, vehicle power, region, brand, fuel, log density | Driver age, BonusMalus, vehicle age, region |
+| Pearson dispersion | 1.69 | 3.48 |
+
+- Continuous factors are banded; regions and brands with under 1% of train exposure are grouped into "Other". Each factor's base level (relativity 1.00) is the band with the most train exposure.
+- Area is left out because it is a banded copy of density (see the EDA findings).
+- Claims are capped at 34,062, the 99.5th percentile of train claims (the EDA's 34,377 used all claims, test included). The excess above the cap is charged back as a flat loading of 654 per predicted claim.
+- Severity drops vehicle power, brand, fuel and density: together they add nothing (F = 1.33 on 18 df, p = 0.16).
+
+Pure premium per policy-year = predicted frequency × (k × predicted capped severity + large-claim loading), where k is the balance factor below.
+
+### Relativities
+
+Selected relativities (multiplier on the base level, with 95% confidence intervals in the notebook). The full tables are in [`models/glm_freq_relativities.csv`](models/glm_freq_relativities.csv) and [`models/glm_sev_relativities.csv`](models/glm_sev_relativities.csv).
+
+| Factor | Level | Frequency | Severity |
+| --- | --- | ---: | ---: |
+| BonusMalus | 50 (base) | 1.00 | 1.00 |
+| | 51-60 | 1.62 | 1.07 |
+| | 61-75 | 2.59 | 1.04 |
+| | 76-100 | 2.88 | 1.12 |
+| | 101+ | 7.55 | 1.12 |
+| Driver age | 18-20 | 1.43 | 1.41 |
+| | 21-25 | 0.79 | 1.01 |
+| | 26-30 | 0.58 | 0.95 |
+| | 51-65 (base) | 1.00 | 1.00 |
+| | 66+ | 0.98 | 1.12 |
+| Vehicle age | 11-20 (base 5-10) | 0.84 | 0.93 |
+| Vehicle power | 11+ (base 6) | 1.22 | – |
+| Fuel | Diesel (base Regular) | 1.17 | – |
+| Density | per unit of log density | 1.075 | – |
+| Region | R82 / R93 / R73 (base R24) | 1.21 / 1.15 / 0.81 | 0.99 / 1.20 / 0.84 |
+| Brand | B12 / B11 (base B1) | 0.78 / 1.21 | – |
+
+### Test-set results
+
+| Model | Freq. Poisson deviance | Sev. Gamma deviance | Pure premium Gini | k | Calibration before / after k (actual ÷ predicted) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| GLM | 0.4482 | 1.1553 | 0.323 | 1.001 | 0.968 / 0.967 |
+
+- k is total actual capped cost ÷ total predicted capped cost on train, using 5-fold out-of-fold predictions so no policy is predicted by a model that saw it.
+- The flat-rate model (every policy gets the train average frequency) scores 0.4706, so the GLM's frequency deviance is 4.8% lower.
+
+![GLM calibration by decile](figures/glm_decile_calibration.png)
+
+**Findings:**
+
+- BonusMalus is by far the strongest frequency factor: policies at 101+ claim 7.6× as often as those at 50, holding everything else fixed. Each band is above the one before it.
+- Young drivers' age relativities are below 1 from 21 to 40 (0.58 at 26-30), the opposite of the one-way EDA table. This is not an error: young drivers start at BonusMalus 100 (average 88–95 at ages 18–25), so the BonusMalus loading already charges for most of their extra risk. Only 18-20 stays loaded on age itself (1.43).
+- Severity varies much less than frequency. Most severity relativities are between 0.85 and 1.20, and most are not significant. The clear exception is driver age 18-20 (1.41), which together with its frequency relativity makes it about 2× as expensive as the base before BonusMalus.
+- Diesel cars claim 17% more often than petrol cars after allowing for the other factors (1.14× in the one-way table). Frequency rises with density by about 5% for each doubling.
+- Most regions are close to 1 once density is in the model; only R82, R93 and R73 differ clearly. R93 is high in both frequency and severity.
+- The GLM's frequency deviance is only 4.8% below a flat rate. This is normal for motor frequency: over 95% of policies have no claim, and most of the deviance is chance that no model can explain. The Gini (0.32) shows the model ranks risk well: actual cost per policy-year rises from 57 in the cheapest decile to 318 in the most expensive.
+- On test, the model over-predicts total capped cost by about 3% (calibration 0.968). k is 1.001, so the two models multiply out to the right total on train, and applying it changes nothing. The gap is within normal variation between random samples: k ranges from 0.943 to 1.086 across the 5 cross-validation folds.
+- k only fixes the total. Individual deciles are off by more: decile 4 is over-predicted by 24% (0.76) and decile 7 by 16% (0.85), while deciles 1 and 8 are under-predicted by 10–12%. With capped claims and about 7,200 exposure years per decile these swings are partly noise, but they go in the limitations and are a target for the GBM.

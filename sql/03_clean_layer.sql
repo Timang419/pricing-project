@@ -1,5 +1,8 @@
 USE motor_pricing;
 
+-- so the script can be run again: claims_clean first, because its foreign key points at policies_clean
+DROP TABLE IF EXISTS claims_clean;
+DROP TABLE IF EXISTS policies_clean;
 
 CREATE TABLE claims_clean AS
 SELECT c.id_pol, c.claim_amount

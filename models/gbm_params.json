@@ -1,0 +1,83 @@
+{
+  "features": [
+    "veh_power",
+    "veh_age",
+    "driv_age",
+    "bonus_malus",
+    "log_density",
+    "veh_gas",
+    "veh_brand",
+    "region"
+  ],
+  "categories": {
+    "veh_gas": [
+      "Diesel",
+      "Regular"
+    ],
+    "veh_brand": [
+      "B1",
+      "B10",
+      "B11",
+      "B12",
+      "B13",
+      "B14",
+      "B2",
+      "B3",
+      "B4",
+      "B5",
+      "B6"
+    ],
+    "region": [
+      "R11",
+      "R21",
+      "R22",
+      "R23",
+      "R24",
+      "R25",
+      "R26",
+      "R31",
+      "R41",
+      "R42",
+      "R43",
+      "R52",
+      "R53",
+      "R54",
+      "R72",
+      "R73",
+      "R74",
+      "R82",
+      "R83",
+      "R91",
+      "R93",
+      "R94"
+    ]
+  },
+  "freq_params": {
+    "objective": "poisson",
+    "verbose": -1,
+    "seed": 42,
+    "bagging_freq": 1,
+    "learning_rate": 0.03223195501574444,
+    "num_leaves": 60,
+    "min_data_in_leaf": 44,
+    "feature_fraction": 0.7984876955727898,
+    "bagging_fraction": 0.5923267875076109,
+    "lambda_l2": 0.020036849120595054
+  },
+  "freq_rounds": 516,
+  "sev_params": {
+    "objective": "gamma",
+    "verbose": -1,
+    "seed": 42,
+    "bagging_freq": 1,
+    "learning_rate": 0.011262956633121667,
+    "num_leaves": 6,
+    "min_data_in_leaf": 332,
+    "feature_fraction": 0.8313375882297063,
+    "bagging_fraction": 0.9984887113460744,
+    "lambda_l2": 0.004414207068052657
+  },
+  "sev_rounds": 234,
+  "k": 1.0107019469205312,
+  "loading_per_claim": 654.12669
+}

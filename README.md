@@ -248,3 +248,40 @@ Selected relativities (multiplier on the base level, with 95% confidence interva
 - The GLM's frequency deviance is only 4.8% below a flat rate. This is normal for motor frequency: over 95% of policies have no claim, and most of the deviance is chance that no model can explain. The Gini (0.32) shows the model ranks risk well: actual cost per policy-year rises from 57 in the cheapest decile to 318 in the most expensive.
 - On test, the model over-predicts total capped cost by about 3% (calibration 0.968). k is 1.001, so the two models multiply out to the right total on train, and applying it changes nothing. The gap is within normal variation between random samples: k ranges from 0.943 to 1.086 across the 5 cross-validation folds.
 - k only fixes the total. Individual deciles are off by more: decile 4 is over-predicted by 24% (0.76) and decile 7 by 16% (0.85), while deciles 1 and 8 are under-predicted by 10–12%. With capped claims and about 7,200 exposure years per decile these swings are partly noise, but they go in the limitations and are a target for the GBM.
+
+## Gradient boosting (LightGBM)
+
+Fitted in [`04_gbm.ipynb`](04_gbm.ipynb) on the same views, train/test split, large-claim cap, loading, k method and metric functions as the GLM, so the two models are directly comparable.
+
+### Setup
+
+| | Frequency | Severity |
+| --- | --- | --- |
+| Model | LightGBM, Poisson objective, `log(exposure)` as the starting score (an offset, so the model learns claims per policy-year) | LightGBM, Gamma objective, weighted by number of claims, policies with claims only |
+| Inputs | The raw rating factors, no bands: driver age, BonusMalus, vehicle age, vehicle power, log density, region, brand, fuel | Same |
+| Tuning | Optuna, 30 trials, scored on a 15% validation slice of train with early stopping | Same |
+| Tuned settings | learning rate 0.032, 60 leaves, at least 44 policies per leaf, 80% of features and 59% of rows per tree, 516 rounds | learning rate 0.011, 6 leaves, at least 332 policies per leaf, 234 rounds |
+
+- The trees choose their own cut points on the raw numbers, so no banding decisions are needed. This is where the GBM can gain over the GLM: non-linear effects and interactions the bands cannot express.
+- Area is left out, as in the GLM. Categorical factors are passed as pandas categories, which LightGBM handles natively.
+- The test set is used once, for the metrics below. k is calculated the same way as for the GLM (5-fold out-of-fold predictions on train), after tuning.
+
+### Test-set results
+
+| Model | Freq. Poisson deviance | Sev. Gamma deviance | Pure premium Gini | k | Calibration before / after k (actual ÷ predicted) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Flat rate | 0.4706 | – | – | – | – |
+| GLM | 0.4482 | 1.1553 | 0.323 | 1.001 | 0.968 / 0.967 |
+| LightGBM | 0.4395 | 1.1562 | 0.366 | 1.011 | 0.974 / 0.963 |
+
+![LightGBM calibration by decile](figures/gbm_decile_calibration.png)
+
+**Findings:**
+
+- The GBM's frequency deviance is 1.9% below the GLM's. Measured against the flat rate, the GLM explains 4.8% of the deviance and the GBM 6.6%, about 40% more of the part any model can explain. The rest is chance: over 95% of policies have no claim.
+- The GBM ranks risk better: Gini 0.366 vs 0.323 (+13%). Actual cost per policy-year runs from 53 in the cheapest decile to 381 in the most expensive (7.2×); the GLM's range was 57 to 318 (5.6×). For pricing, this is the gain that matters.
+- Severity is a tie (1.1562 vs 1.1553). Claim size is mostly noise and the GBM finds nothing the GLM misses. With only about 3,000 policies in the validation slice, severity tuning is noisy, so small differences either way should not be read as real.
+- Tuning has little to find. 30 trials improved on the starting settings by 0.15%, and the top 5 trials are within 0.00013 of each other. The frequency model is as good as these 8 rating factors allow.
+- BonusMalus carries 41% of the frequency model's gain, driver age 15% and density 14%. For severity, region (37%) and driver age (24%) lead. Predicted frequency tracks actual across every age and BonusMalus band; the thin top bands are shrunk slightly toward the middle (BonusMalus 101+: 0.342 predicted vs 0.360 actual).
+- Both models overprice the test set by about 3% (calibration 0.97), the same gap in the same direction, so it is the test sample, not the models: the test policies cost a little less than train. The GBM's deciles swing from 0.76 (decile 3) to 1.13 (decile 1), the same size as the GLM's swings. k fixes the total, not the shape; this goes in the limitations.
+- The GBM is the pricing model from here on. The GLM stays as the benchmark, and Step 7 uses the two sets of test predictions to show where they disagree.

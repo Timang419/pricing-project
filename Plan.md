@@ -142,9 +142,9 @@ freq.to_sql("policies_raw", engine, if_exists="append", index=False, chunksize=5
 sev.to_sql("claims_raw", engine, if_exists="append", index=False, chunksize=50_000)
 ```
 
-- [ ] Run the schema, then the loader
-- [ ] Reconcile: `SELECT COUNT(*)` on both tables must equal the CSV row counts; `SUM(claim_amount)` must equal the CSV total
-- [ ] Write the counts into the README ("Loaded 678,013 policies and N claims; reconciled")
+- [x] Run the schema, then the loader
+- [x] Reconcile: `SELECT COUNT(*)` on both tables must equal the CSV row counts; `SUM(claim_amount)` must equal the CSV total
+- [x] Write the counts into the README ("Loaded 678,013 policies and N claims; reconciled")
 
 Tip: if `to_sql` is slow, switch to `LOAD DATA LOCAL INFILE` (needs `local_infile` enabled on server and client).
 
@@ -219,8 +219,8 @@ ALTER TABLE claims_clean ADD COLUMN claim_id INT AUTO_INCREMENT PRIMARY KEY FIRS
     ADD FOREIGN KEY (id_pol) REFERENCES policies_clean(id_pol);
 ```
 
-- [ ] Run all checks, note counts
-- [ ] Build clean tables; re-run the checks against them (all should return 0)
+- [x] Run all checks, note counts
+- [x] Build clean tables; re-run the checks against them (all should return 0)
 - [ ] Optional: draw the ER diagram in MySQL Workbench and export it for the README
 
 ## Step 3 — EDA: aggregates in SQL, charts in Python (1 day)
@@ -277,7 +277,7 @@ Repeat the segment query for: BonusMalus bands, vehicle age, vehicle power, area
 3. Lorenz-style curve of claim cost concentration
 4. Correlation check between numeric factors (BonusMalus vs driver age is strongly related)
 
-- [ ] Write 3–4 one-line findings, e.g. "drivers under 21 claim N× more often than the average" — these go in the README
+- [x] Write 3–4 one-line findings, e.g. "drivers under 21 claim N× more often than the average" — these go in the README
 
 ## Step 4 — Feature engineering in SQL and train/test split (½ day)
 
@@ -320,9 +320,9 @@ JOIN (SELECT id_pol, COUNT(*) AS n_claims,
   ON f.id_pol = s.id_pol;
 ```
 
-- [ ] Large-claim loading = excess cost above the cap / train claims (`SUM(claim_nb)`), from the `large_claim_loading` view. Record it; it's added to predicted severity in Step 7.
-- [ ] Check the split: frequency in train and test should be close
-- [ ] Python: `df = pd.read_sql("SELECT * FROM model_features", engine)`
+- [x] Large-claim loading = excess cost above the cap / train claims (`SUM(claim_nb)`), from the `large_claim_loading` view. Record it; it's added to predicted severity in Step 7. (Cap 34,062; loading 654 per claim.)
+- [x] Check the split: frequency in train and test should be close
+- [x] Python: `df = pd.read_sql("SELECT * FROM model_features", engine)`
 
 Keep features close to the raw rating factors. GBMs don't need bands; the GLM gets bands or splines in Step 5.
 
@@ -376,10 +376,10 @@ k = capped_cost.sum() / (freq_oof * sev_oof * exposure).sum()
 - Calibration: total actual capped cost ÷ total predicted capped cost on the test set, before and after `k` (should be close to 1; same direction as `k` and the decile chart, above 1 = underpriced)
 - Decile calibration: actual ÷ predicted by decile of predicted pure premium. `k` only fixes the total, so errors here go in the limitations
 
-* [ ] Fit both GLMs, save coefficient tables (`exp(coef)` = relativities)
-* [ ] Calculate `k` for the GLM and apply it before comparing deviance
-* [ ] Record test-set metrics in a results table
-* [ ] Sanity check: young drivers and high BonusMalus should have relativities above 1
+* [x] Fit both GLMs, save coefficient tables (`exp(coef)` = relativities)
+* [x] Calculate `k` for the GLM and apply it before comparing deviance
+* [x] Record test-set metrics in a results table
+* [x] Sanity check: young drivers and high BonusMalus should have relativities above 1 (BonusMalus and age 18-20 are above 1; ages 21-40 are below 1 because BonusMalus already charges for that risk, see README)
 
 ## Step 6 — Gradient boosting models (1.5 days)
 
@@ -422,13 +422,13 @@ XGBoost equivalent: `objective="count:poisson"` with `base_margin=np.log(exposur
 
 | Model | Freq. Poisson deviance | Sev. Gamma deviance | Pure premium Gini | k | Calibration before / after k |
 | --- | --- | --- | --- | --- | --- |
-| GLM |  |  |  |  |  |
-| LightGBM |  |  |  |  |  |
+| GLM | 0.4482 | 1.1553 | 0.323 | 1.001 | 0.968 / 0.967 |
+| LightGBM | 0.4395 | 1.1562 | 0.366 | 1.011 | 0.974 / 0.963 |
 | Tweedie GBM (optional) |  |  |  |  |  |
 
-- [ ] Calculate `k` for the GBM after tuning is finished, and apply it before comparing deviance
-- [ ] Save models to `models/`
-- [ ] Compute % improvement in deviance and Gini vs GLM — this is your CV number
+- [x] Calculate `k` for the GBM after tuning is finished, and apply it before comparing deviance (k = 1.011)
+- [x] Save models to `models/` (`gbm_freq.txt`, `gbm_sev.txt`, `gbm_params.json`, `gbm_test_predictions.csv`)
+- [x] Compute % improvement in deviance and Gini vs GLM — this is your CV number (frequency deviance 1.9% lower; Gini 0.323 → 0.366, +13%; severity tied)
 - [ ] Add the project to your CV now
 
 ## Step 7 — Explain, find mispricing, set the premium (1 day)

@@ -8,9 +8,9 @@ Build a motor insurance pricing model on 678k French policies: SQL data layer �
 
 **Headline story for the CV:** "I built a frequency–severity pricing model where an exposure-aware GBM beat the industry-standard GLM by X% on deviance, and I showed which customer segments the GLM misprices."
 
-**Stack:** MySQL 8.0+, Python (pandas, SQLAlchemy, PyMySQL, statsmodels, scikit-learn, LightGBM or XGBoost, Optuna, SHAP, matplotlib/seaborn), Streamlit, Git/GitHub.
+**Stack:** MySQL 8.0+, Python (pandas, SQLAlchemy, PyMySQL, statsmodels, scikit-learn, LightGBM or XGBoost, Optuna, SHAP, matplotlib/seaborn), Git/GitHub.
 
-**Pipeline:** raw CSV → MySQL raw tables → SQL clean layer → SQL features → Python models → pricing + explanations → Streamlit app.
+**Pipeline:** raw CSV → MySQL raw tables → SQL clean layer → SQL features → Python models → pricing + explanations.
 
 | Step | What | Days |
 | --- | --- | --- |
@@ -22,7 +22,7 @@ Build a motor insurance pricing model on 678k French policies: SQL data layer �
 | 5 | GLM baseline | 1 |
 | 6 | GBM models | 1.5 |
 | 7 | Evaluation, SHAP, mispricing, premium | 1 |
-| 8 | Streamlit app, README, CV | 1.5 |
+| 8 | README, packaging, CV | 0.5 |
 
 Add the project to your CV once Step 6 is done; Steps 7–8 can follow.
 
@@ -33,7 +33,7 @@ Goal: a GitHub repo, a working Python environment, MySQL running, and the two ra
 - [x] Install MySQL 8.0+ (window functions and CTEs need 8.0) and MySQL Workbench
 - [x] Create a database: `CREATE DATABASE motor_pricing;`
 - [x] Create a GitHub repo `pricing-project` and a virtual environment
-- [x] `pip install pandas sqlalchemy pymysql scikit-learn statsmodels lightgbm xgboost optuna shap matplotlib seaborn streamlit python-dotenv`
+- [x] `pip install pandas sqlalchemy pymysql scikit-learn statsmodels lightgbm xgboost optuna shap matplotlib seaborn python-dotenv`
 - [x] Put DB credentials (`DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_NAME`) in a `.env` file and add `.env` and `data/` to `.gitignore`
 - [x] Download the data and save as CSV
 
@@ -69,8 +69,8 @@ pricing-project/
 │   ├── 03_clean_layer.sql
 │   ├── 04_eda.sql
 │   └── 05_features.sql
-├── models/                (saved model files)
-└── app/streamlit_app.py   (must be .py for streamlit run)
+├── figures/               (charts for the README)
+└── models/                (saved model files)
 ```
 
 All Python work is in notebooks, run in number order. Helper code (DB connection, metrics) goes in a setup cell at the top of each notebook.
@@ -459,21 +459,13 @@ where λ̂ = predicted frequency, μ̂ = predicted capped severity, k = balance 
 - [x] Added: large-claim loading, flat pooling vs a GPD tail model. The GPD fails all four stability checks (shape 0.87, 95% interval 0.56 to 1.29), so pooling stays at 654 per claim. A per-claim limit with reinsurance is future work
 - [x] Write 3 headline findings with numbers for the README
 
-## Step 8 — Streamlit app, README, packaging (1.5 days)
+## Step 8 — README and packaging (½ day)
 
-Goal: a recruiter can see the result in 30 seconds without running anything.
-
-**Streamlit quoting app** (`app/streamlit_app.py`):
-
-- [ ] Inputs: driver age, BonusMalus, vehicle age, power, brand, fuel, area, region, density
-- [ ] Outputs: predicted frequency, severity, pure premium, quoted premium, and GLM premium for comparison
-- [ ] A SHAP waterfall for that single quote ("why this price")
-- [ ] Load saved models from `models/`; the app doesn't need MySQL
-- [ ] Deploy free on Streamlit Community Cloud and link it from the README
+Goal: a recruiter can see the result in 30 seconds without running anything. The README is the showcase.
 
 **README structure** (findings first, process second):
 
-1. One-line summary + links (live app, notebooks)
+1. One-line summary + links to the notebooks
 2. Key findings: 3 sentences with numbers, one chart each
 3. Results table (GLM vs GBM)
 4. Data pipeline: ER diagram, data-quality decisions table, row-count reconciliation
@@ -489,11 +481,11 @@ Goal: a recruiter can see the result in 30 seconds without running anything.
 
 **CV entry** (fill in the numbers when done):
 
-> **Motor Insurance Pricing — SQL, Python, LightGBM** (GitHub | Live app)
+> **Motor Insurance Pricing — SQL, Python, LightGBM** (GitHub)
 >
 > - Designed a MySQL raw/clean data layer for 678k policies and claims, with SQL data-quality checks, reconciliation and feature engineering (CTEs, window functions).
 > - Built frequency–severity models (Poisson/Gamma GLMs vs exposure-offset LightGBM); GBM improved Poisson deviance by \[X\]% and Gini from \[a\] to \[b\].
-> - Used SHAP and double-lift analysis to find segments the GLM misprices by up to \[Z\]%; deployed a Streamlit quoting app with per-quote explanations.
+> - Used SHAP and double-lift analysis to find segments the GLM misprices by up to \[Z\]%, and turned the pure premium into a quoted price with expense and profit loadings.
 
 **Questions you should be ready to answer:**
 
@@ -508,6 +500,5 @@ Goal: a recruiter can see the result in 30 seconds without running anything.
 **Done checklist:**
 
 - [ ] Repo public, README has findings + charts
-- [ ] Live app link works on mobile
 - [ ] CV updated with real numbers, and "PROJECT" renamed to "PROJECTS"
 - [ ] SQL is now evidenced on your CV, not only listed in Skills

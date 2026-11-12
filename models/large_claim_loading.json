@@ -1,0 +1,13 @@
+{
+  "method": "pooling",
+  "loading_per_claim": 654.1266898757999,
+  "cap": 34062.25,
+  "pooling_loading": 654.1266898757999,
+  "gpd_loading": 1225.6135856595267,
+  "gpd_shape": 0.8667484707823769,
+  "gpd_shape_ci": [
+    0.56,
+    1.29
+  ],
+  "gpd_scale": 32749.256465437935
+}

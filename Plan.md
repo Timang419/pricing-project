@@ -437,15 +437,15 @@ Goal: turn model accuracy into a business finding. This is the section that make
 
 **1. Explain the GBM with SHAP**
 
-- [ ] SHAP summary plot for the frequency model
-- [ ] Dependence plots for `bonus_malus`, `driv_age`, `veh_age`
-- [ ] Compare GBM partial dependence against GLM relativities on one chart per factor. Where they differ is what the GLM misses (e.g. non-linear age effects, BonusMalus × age interaction)
+- [x] SHAP summary plot for the frequency model (BonusMalus 1.40× typical multiplier, density and driver age 1.12×)
+- [x] Dependence plots for `bonus_malus`, `driv_age`, `veh_age`
+- [x] Compare GBM partial dependence against GLM relativities on one chart per factor. Where they differ is what the GLM misses (e.g. non-linear age effects, BonusMalus × age interaction) (largest gap: age 26-30, GLM 0.58 vs GBM 0.72)
 
 **2. Lift and mispricing analysis**
 
-- [ ] Double lift chart: sort test policies by GBM ÷ GLM premium ratio, cut into 10 bands, plot actual loss cost vs each model's prediction per band. The model whose line tracks actual is better
-- [ ] Identify segments where GLM premium is furthest from actual cost, e.g. "the GLM undercharges young drivers in dense urban areas by \~X%"
-- [ ] Quantify: share of policies mispriced by more than 20%
+- [x] Double lift chart: sort test policies by GBM ÷ GLM premium ratio, cut into 10 bands, plot actual loss cost vs each model's prediction per band. The model whose line tracks actual is better (average band error: GLM 25.5%, GBM 10.2%)
+- [x] Identify segments where GLM premium is furthest from actual cost, e.g. "the GLM undercharges young drivers in dense urban areas by \~X%" (age 26-30 with BonusMalus 76-100: actual claims 1.22× the GLM's prediction, 1.06× the GBM's)
+- [x] Quantify: share of policies mispriced by more than 20% (44.6%)
 
 **3. From pure premium to a quoted price**
 
@@ -455,7 +455,9 @@ Goal: turn model accuracy into a business finding. This is the section that make
 
 where λ̂ = predicted frequency, μ̂ = predicted capped severity, k = balance factor from Step 5 or 6, L = large-claim loading per claim from Step 4, e = expense ratio, p = profit margin. Pick and state simple assumptions (e.g. e = 25%, p = 5%).
 
-- [ ] Write 3 headline findings with numbers for the README
+- [x] Premium with e = 25%, p = 5% (median GBM premium 208 per policy-year; test loss ratio 0.559, 0.674 on capped cost)
+- [x] Added: large-claim loading, flat pooling vs a GPD tail model. The GPD fails all four stability checks (shape 0.87, 95% interval 0.56 to 1.29), so pooling stays at 654 per claim. A per-claim limit with reinsurance is future work
+- [x] Write 3 headline findings with numbers for the README
 
 ## Step 8 — Streamlit app, README, packaging (1.5 days)
 

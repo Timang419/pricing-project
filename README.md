@@ -285,3 +285,105 @@ Fitted in [`04_gbm.ipynb`](04_gbm.ipynb) on the same views, train/test split, la
 - BonusMalus carries 41% of the frequency model's gain, driver age 15% and density 14%. For severity, region (37%) and driver age (24%) lead. Predicted frequency tracks actual across every age and BonusMalus band; the thin top bands are shrunk slightly toward the middle (BonusMalus 101+: 0.342 predicted vs 0.360 actual).
 - Both models overprice the test set by about 3% (calibration 0.97), the same gap in the same direction, so it is the test sample, not the models: the test policies cost a little less than train. The GBM's deciles swing from 0.76 (decile 3) to 1.13 (decile 1), the same size as the GLM's swings. k fixes the total, not the shape; this goes in the limitations.
 - The GBM is the pricing model from here on. The GLM stays as the benchmark, and Step 7 uses the two sets of test predictions to show where they disagree.
+
+## Explaining the GBM, mispricing and the premium
+
+Done in [`05_explain_and_price.ipynb`](05_explain_and_price.ipynb) on the test set (135,869 policies), using the saved models and the two sets of test predictions. Nothing is refitted.
+
+**Headline findings:**
+
+1. **The GBM finds risk that the GLM's bands miss.** BonusMalus is the main driver of predicted frequency, and the largest gaps between the two models are for young drivers: for ages 26-30 the GLM's relativity is 0.58 against the GBM's 0.72.
+2. **The GLM prices 45% of policies more than 20% away from the GBM, and actual cost sides with the GBM.** Where the GLM is over 20% cheaper, actual capped cost is 1.69 times the GLM's prediction and 1.03 times the GBM's.
+3. **The quoted premium is the GBM pure premium ÷ 0.70**, with a median of 208 per policy-year. The large-claim loading stays at 654 per claim: an extreme-value tail model was tested and could not give a reliable loading.
+
+### What drives predicted frequency
+
+SHAP values for the frequency GBM, on 30,000 test policies. The model works on the log scale, so exp(SHAP value) is a multiplier on predicted frequency, read like a GLM relativity.
+
+| Factor | Typical multiplier | Range across policies |
+| --- | ---: | ---: |
+| BonusMalus | 1.40× | 0.63× to 7.91× |
+| Log density | 1.12× | 0.68× to 2.77× |
+| Driver age | 1.12× | 0.66× to 2.10× |
+| Region | 1.08× | 0.66× to 2.19× |
+| Vehicle age | 1.08× | 0.52× to 1.64× |
+
+![SHAP summary](figures/shap_summary.png)
+![SHAP dependence](figures/shap_dependence.png)
+
+### GBM shape vs GLM relativities
+
+The GLM gives one relativity per band. The GBM curve is its partial dependence, put on the same base band. The table shows the GBM's average inside each GLM band.
+
+| Factor | Band | GLM | GBM |
+| --- | --- | ---: | ---: |
+| Driver age | 18-20 | 1.43 | 1.35 |
+| | 21-25 | 0.79 | 0.96 |
+| | 26-30 | 0.58 | 0.72 |
+| | 31-40 | 0.72 | 0.79 |
+| BonusMalus | 51-60 | 1.62 | 1.52 |
+| | 61-75 | 2.59 | 2.41 |
+| | 76-100 | 2.88 | 2.68 |
+| | 101+ | 7.55 | 6.26 |
+
+![GBM shape vs GLM relativities](figures/gbm_vs_glm_relativities.png)
+
+### Where the two models disagree
+
+Double lift chart: test policies sorted by GBM ÷ GLM premium and cut into 10 equal-exposure bands. The model whose line follows actual cost is the better one.
+
+![Double lift chart](figures/double_lift.png)
+
+| Group (GLM premium vs GBM premium) | Share of policies | Actual cost per year | GLM predicted | GBM predicted | Actual ÷ GLM | Actual ÷ GBM |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| GLM over 20% cheaper | 18.7% | 212 | 125 | 205 | 1.69 | 1.03 |
+| Within 20% | 55.4% | 103 | 111 | 112 | 0.93 | 0.92 |
+| GLM over 20% dearer | 25.9% | 106 | 158 | 107 | 0.67 | 0.99 |
+
+Costs are capped claim cost per policy-year.
+
+### Large-claim loading: flat pooling vs a GPD tail model
+
+The loading charges back the claim cost above the cap. Two ways to set it were compared on train claims: flat pooling (total excess ÷ claims, used since Step 4) and a Generalized Pareto Distribution fitted to the 106 excesses above the cap (extreme value theory, peaks over threshold). The GPD would replace pooling only if it passed all four checks.
+
+| Check | Flat pooling | GPD tail model | GPD passes? |
+| --- | ---: | ---: | --- |
+| Loading per claim | 654 | 1,226 | – |
+| 95% interval for the GPD shape stays below 1 | – | 0.87 (0.56 to 1.29) | No |
+| Loading is finite in at least 99% of 2,000 bootstrap resamples | 100% | 79.7% | No |
+| Bootstrap 95% interval | 318 to 1,146 | 361 to no finite value | No |
+| Change when the largest claim is removed | −29% | −46% | No |
+
+![Tail of the train claims](figures/large_claim_tail.png)
+![Bootstrap of the two loadings](figures/large_claim_loading_bootstrap.png)
+
+### From pure premium to a quoted price
+
+Premium per policy-year = predicted frequency × (k × predicted capped severity + 654) ÷ (1 − 25% expenses − 5% profit). So 70% of the premium is meant to pay claims.
+
+| | GLM | GBM |
+| --- | ---: | ---: |
+| Median premium | 205 | 208 |
+| 5th to 95th percentile | 109 to 593 | 104 to 639 |
+| Average premium (exposure-weighted) | 248 | 250 |
+| Test loss ratio (actual cost ÷ premium) | 0.562 | 0.559 |
+| Test loss ratio on capped cost, without the loading | 0.677 | 0.674 |
+
+**Findings:**
+
+- BonusMalus moves a policy's predicted frequency by 1.40× in a typical case and by up to 7.91×. Density and driver age come next at 1.12× each.
+- The GLM undercharges ages 21 to 40 relative to the GBM (0.58 vs 0.72 at 26-30) and overcharges the highest BonusMalus band (7.55 vs 6.26). Inside the GLM's BonusMalus bands the GBM curve is not flat: it peaks near 62, 77 and 96, which the bands average away.
+- In the double lift chart the GBM follows actual cost at both ends. In the band where the GBM is cheapest relative to the GLM, actual cost is 111 per year: the GLM predicts 195 and the GBM 114. In the band where it is dearest, actual is 229: the GLM predicts 133 and the GBM 241. Across the 10 bands the GLM is off by 25.5% on average and the GBM by 10.2%.
+- 44.6% of test policies have a GLM premium more than 20% away from the GBM premium. In both groups actual cost is close to the GBM's prediction (1.03 and 0.99) and far from the GLM's (1.69 and 0.67).
+- By segment, the clearest GLM error is driver age 26-30 with BonusMalus 76-100: actual claims are 1.22 times the GLM's prediction and 1.06 times the GBM's (256 claims). Across driver age × BonusMalus segments the average frequency error is 8.1% for the GLM and 5.4% for the GBM.
+- The GBM does not fix everything. Across driver age × density segments the two models are equally accurate (5.1% and 5.2%), and both overcharge rural drivers aged 21-25: actual claims are 0.69 times predicted for both models (83 claims).
+- The GPD describes the tail well, and what it shows is a very heavy tail: a shape of 0.87, with an interval that includes 1. At a shape of 1 or more the average excess has no finite value, so the GPD loading is unstable: it is almost twice pooling's, has no finite value in 20% of resamples, and moves more than pooling when the largest claim is removed. Pooling is kept.
+- Pooling is uncertain too. Four claims make up 53% of the train excess, and the largest alone (4.08M) makes up 29%. Its bootstrap interval is 318 to 1,146 per claim.
+- The test loss ratio is 56% against the 70% target. Most of the gap comes from the loading: the test set had 254 of excess per claim against the 654 charged. A test-sized sample drawn from the train claims gives 167 to 1,815, so 254 is within what chance allows. On capped cost the loss ratio is 67%, and the remaining gap is the 3 to 4% over-prediction of capped cost already seen in both models.
+
+**Limitations and future work:**
+
+- With 106 large claims and no upper limit on a claim, the expected excess cannot be estimated reliably by either method. A per-claim limit with reinsurance above it would make the loading stable, but needs an assumed reinsurance cost that this data cannot supply.
+- The loading is the same for every claim. There are too few large claims to model which policies have larger ones.
+- The 20% mispricing figure takes the GBM as the reference. The actual-cost checks support that for the groups as a whole, not for each policy.
+- The expense ratio (25%) and profit margin (5%) are assumptions.
